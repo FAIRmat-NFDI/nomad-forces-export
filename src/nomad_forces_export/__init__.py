@@ -14,11 +14,11 @@ from nomad_forces_export.write import write_atoms
 # logger = logging.getLogger(__name__)
 
 __all__ = [
-    "NomadQuery",
-    "atoms_generator",
-    "create_dataset_from_archives",
-    "fetch_dataset",
-    "write_atoms",
+    'NomadQuery',
+    'atoms_generator',
+    'create_dataset_from_archives',
+    'fetch_dataset',
+    'write_atoms',
 ]
 
 
@@ -33,10 +33,10 @@ def atoms_generator(archives, properties):
         for atoms in to_atoms(archive_entry, properties=properties):
             frames_for_entry += 1
             yield atoms
+        n_frames += frames_for_entry
         frames_for_entry = bool(frames_for_entry)
         n_entries_skipped += not frames_for_entry
         entries_processed += frames_for_entry
-        n_frames += frames_for_entry
 
     try:
         for archive_entry in archives:
@@ -44,10 +44,10 @@ def atoms_generator(archives, properties):
     except Exception as e:
         import traceback
 
-        logger.error(f"Traceback:\n{traceback.format_exc()}")
-        logger.error(f"Error occurred while processing entries: {e}")
+        logger.error(f'Traceback:\n{traceback.format_exc()}')
+        logger.error(f'Error occurred while processing entries: {e}')
     logger.info(
-        f"Extracted {n_frames} frames from {entries_processed} entries; {n_entries_skipped} entries had no usable frames for requested properties. Total entries processed: {n_entries_skipped + entries_processed}."
+        f'Extracted {n_frames} frames from {entries_processed} entries; {n_entries_skipped} entries had no usable frames for requested properties. Total entries processed: {n_entries_skipped + entries_processed}.'
     )
 
 
@@ -58,7 +58,7 @@ def fetch_dataset(
     output_path: str,
     max_entries: int | None = None,
     batch_size: int = 50,
-    client: NomadClient | None = None,
+    use_nomad_pkg: bool = False,
 ) -> None:
     """Fetch entries matching `query` from NOMAD and write them as a dataset.
 
@@ -67,21 +67,23 @@ def fetch_dataset(
     frame with the requested `properties`, and writes the result to `output_path`
     in the given `output_format` ("ase_db", "extxyz", or a list of both).
     """
-    client = client or NomadClient()
+    if use_nomad_pkg:
+        search = query.search_nomad
+        fetch_archives = query.fetch_archives_nomad
+    else:
+        search = query.search
+        fetch_archives = query.fetch_archives
     entry_ids = list(
-        query.search(
-            client=client,
+        search(
             max_entries=max_entries,
             properties=properties,
         )
     )
     logger.info(
-        f"found {len(entry_ids)} matching entries after dataset exclusion filtering"
+        f'found {len(entry_ids)} matching entries after dataset exclusion filtering'
     )
-    archives = query.fetch_archives(
-        client=client, entry_ids=entry_ids, batch_size=batch_size
-    )
-    logger.info(f"Fetching {len(entry_ids)} entries in batches of {batch_size}...")
+    logger.info(f'Fetching {len(entry_ids)} entries in batches of {batch_size}...')
+    archives = fetch_archives(entry_ids=entry_ids, batch_size=batch_size)
     write_atoms(
         atoms_generator(archives, properties=properties),
         output_path=output_path,
@@ -106,7 +108,7 @@ def create_dataset_from_archives(
         if isinstance(archives, str):
             archives = Path(archives)
         if archives.is_dir():
-            for file in Path(archives).glob("*.json"):
+            for file in Path(archives).glob('*.json'):
                 with open(file) as f:
                     entries.append(json.load(f))
         elif archives.is_file():

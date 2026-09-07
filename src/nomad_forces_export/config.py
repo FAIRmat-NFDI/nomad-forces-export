@@ -1,36 +1,38 @@
-VALID_FORMATS = {"ase_db", "extxyz"}
-VALID_PROPERTIES = {"energy", "forces", "stress"}
+VALID_FORMATS = {'ase_db', 'extxyz'}
+VALID_PROPERTIES = {'energy', 'forces', 'stress'}
 
-NOMAD_BASE_URL = "https://nomad-lab.eu/prod/v1/api/v1"
+NOMAD_BASE_URL = 'https://nomad-lab.eu/prod/v1/api/v1'
 
 WORKFLOWS = [
-    "SinglePoint",
-    "single_point",
-    "GeometryOptimization",
-    "geometry_optimization",
+    'SinglePoint',
+    'single_point',
+    'GeometryOptimization',
+    'geometry_optimization',
 ]
 
-REQUIRED_METADATA = ["entry_id", "upload_id"]
+REQUIRED_METADATA = ['entry_id', 'upload_id']
 REQUIRED_ARCHIVE_DATA = {
-    "results": {
-        "method": "*",
+    'metadata': {'entry_id': '*', 'upload_id': '*'},
+    'results': {
+        'method': '*',
     },
-    "workflow2": {"results": {"is_converged_geometry": "*"}},
-    "run": {
-        "program": "*",
-        "method": "*",
-        "system": {"atoms": "*", "is_representative": "*"},
-        "calculation": {
-            "energy": "*",
-            "forces": "*",
-            "stress": "*",
-            "system_ref": "*",
+    'workflow2': {'results': {'is_converged_geometry': '*'}},
+    'workflow': {'geometry_optimization': {'is_converged_geometry': '*'}},
+    'run': {
+        'program': '*',
+        'method': '*',
+        'system': {'atoms': '*', 'is_representative': '*'},
+        'calculation': {
+            'energy': '*',
+            'forces': '*',
+            'stress': '*',
+            'system_ref': '*',
         },
     },
 }
 
 BASE_QUERY = {
-    "results.method.method_name:any": ["DFT"],
-    "results.method.workflow_name:any": WORKFLOWS,
-    "quantities:all": ["run.calculation", "run.system"],
+    'results.method.method_name:any': ['DFT'],
+    'results.method.workflow_name:any': WORKFLOWS,
+    'quantities:all': ['run.calculation', 'run.system'],
 }

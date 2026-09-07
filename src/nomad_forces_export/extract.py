@@ -21,24 +21,24 @@ logger = logging.getLogger(__name__)
 def _parse_system_ref(system_ref: str) -> tuple[int, int] | None:
     # system_ref looks like "/run/0/system/3" (leading slash optional) ->
     # extract both the run index and system index.
-    parts = system_ref.rstrip("/").split("/")
+    parts = system_ref.rstrip('/').split('/')
     try:
-        run_index = int(parts[parts.index("run") + 1])
-        system_index = int(parts[parts.index("system") + 1])
+        run_index = int(parts[parts.index('run') + 1])
+        system_index = int(parts[parts.index('system') + 1])
     except (ValueError, IndexError):
         return None
     return run_index, system_index
 
 
 def _build_atoms_from_system(system: dict) -> Atoms:
-    atoms_data = system["atoms"]
-    species = atoms_data["species"]
-    positions_m = np.array(atoms_data["positions"])
+    atoms_data = system['atoms']
+    species = atoms_data['species']
+    positions_m = np.array(atoms_data['positions'])
     positions_ang = meter_to_angstrom(positions_m)
-    magmoms = system.get("magmoms")
+    magmoms = system.get('magmoms')
 
-    lattice_vectors_m = atoms_data.get("lattice_vectors")
-    periodic = atoms_data.get("periodic", [False, False, False])
+    lattice_vectors_m = atoms_data.get('lattice_vectors')
+    periodic = atoms_data.get('periodic', [False, False, False])
 
     cell = None
     if lattice_vectors_m is not None:
@@ -54,31 +54,31 @@ def _build_atoms_from_system(system: dict) -> Atoms:
 
 
 def _extract_energy_ev(calculation: dict) -> float | None:
-    energy = calculation.get("energy")
+    energy = calculation.get('energy')
     if not energy:
         return None
-    if "total_t0" in energy:
-        return joule_to_ev(energy["total_t0"]["value"])
-    if "total" in energy:
-        return joule_to_ev(energy["total"]["value"])
-    if "free" in energy:
-        return joule_to_ev(energy["free"]["value"])
+    if 'total_t0' in energy:
+        return joule_to_ev(energy['total_t0']['value'])
+    if 'total' in energy:
+        return joule_to_ev(energy['total']['value'])
+    if 'free' in energy:
+        return joule_to_ev(energy['free']['value'])
     return None
 
 
 def _extract_forces_ev_per_ang(calculation: dict) -> np.ndarray | None:
-    forces = calculation.get("forces")
-    if not forces or "total" not in forces:
+    forces = calculation.get('forces')
+    if not forces or 'total' not in forces:
         return None
-    forces_n = np.array(forces["total"]["value"])
+    forces_n = np.array(forces['total']['value'])
     return newton_to_ev_per_angstrom(forces_n)
 
 
 def _extract_stress_ev_per_ang3(calculation: dict) -> np.ndarray | None:
-    stress = calculation.get("stress")
-    if not stress or "total" not in stress:
+    stress = calculation.get('stress')
+    if not stress or 'total' not in stress:
         return None
-    stress_pa = np.array(stress["total"]["value"])
+    stress_pa = np.array(stress['total']['value'])
     return pascal_to_ev_per_angstrom3(stress_pa)
 
 
@@ -90,38 +90,31 @@ def to_atoms(archive_entry: dict, properties: set | list[str]) -> Iterator[Atoms
     """
     unknown = set(properties) - VALID_PROPERTIES
     if unknown:
-        raise ValueError(f"Unknown properties requested: {sorted(unknown)}")
+        raise ValueError(f'Unknown properties requested: {sorted(unknown)}')
 
-    entry_id = archive_entry.get("entry_id")
-    upload_id = archive_entry.get("upload_id")
-    runs = archive_entry.get("archive", {}).get("run", [])
+    entry_id = archive_entry.get('entry_id')
+    upload_id = archive_entry.get('upload_id')
+    runs = archive_entry.get('archive', {}).get('run', [])
 
     for run_index, run in enumerate(runs):
-        systems = run.get("system", [])
-        calculations = run.get("calculation", [])
-        method = run.get("method", [{}])[0]
+        systems = run.get('system', [])
+        calculations = run.get('calculation', [])
+        method = run.get('method', [{}])[0]
 
         for calc_index, calculation in enumerate(calculations):
-            system_ref = calculation.get("system_ref")
+            system_ref = calculation.get('system_ref')
             if system_ref is not None:
                 parsed = _parse_system_ref(system_ref)
                 if parsed is None:
                     logger.warning(
-                        "entry %s: calculation %d has an unparseable system_ref %r, skipping",
-                        entry_id,
-                        calc_index,
-                        system_ref,
+                        f'entry {entry_id}: calculation {calc_index} has an unparseable system_ref {system_ref}, skipping'
                     )
                     continue
                 ref_run_index, system_index = parsed
                 if ref_run_index != run_index:
                     logger.warning(
-                        "entry %s: calculation %d has system_ref pointing to a "
-                        "different run (%d) than its own run (%d), skipping",
-                        entry_id,
-                        calc_index,
-                        ref_run_index,
-                        run_index,
+                        f'entry {entry_id}: calculation {calc_index} has system_ref pointing to a '
+                        f'different run ({ref_run_index}) than its own run ({run_index}), skipping',
                     )
                     continue
             else:
@@ -129,59 +122,57 @@ def to_atoms(archive_entry: dict, properties: set | list[str]) -> Iterator[Atoms
 
             if system_index < 0 or system_index >= len(systems):
                 logger.warning(
-                    "entry %s: calculation %d references missing system %d, skipping",
+                    'entry %s: calculation %d references missing system %d, skipping',
                     entry_id,
                     calc_index,
                     system_index,
                 )
                 continue
 
-            if method.get("x_vasp_incar_in"):
-                magmom = method["x_vasp_incar_in"].get("MAGMOM")
+            if method.get('x_vasp_incar_in'):
+                magmom = method['x_vasp_incar_in'].get('MAGMOM')
                 if magmom:
-                    systems[system_index]["magmoms"] = np.array(magmom)
+                    systems[system_index]['magmoms'] = np.array(magmom)
             results: dict = {}
-            skip = False
+            skip = ''
 
-            if "energy" in properties:
+            if 'energy' in properties:
                 energy_ev = _extract_energy_ev(calculation)
                 if energy_ev is None:
-                    skip = True
+                    skip = 'energy'
                 else:
-                    results["energy"] = energy_ev
+                    results['energy'] = energy_ev
 
-            if not skip and "forces" in properties:
+            if not skip and 'forces' in properties:
                 forces = _extract_forces_ev_per_ang(calculation)
                 if forces is None:
-                    skip = True
+                    skip = 'forces'
                 else:
-                    results["forces"] = forces
+                    results['forces'] = forces
 
-            if not skip and "stress" in properties:
+            if not skip and 'stress' in properties:
                 stress = _extract_stress_ev_per_ang3(calculation)
                 if stress is None:
-                    skip = True
+                    skip = 'stress'
                 else:
-                    results["stress"] = stress
+                    results['stress'] = stress
 
             if skip:
                 logger.debug(
-                    "entry %s: calculation %d missing a requested property, skipping",
-                    entry_id,
-                    calc_index,
+                    f'entry {entry_id}: calculation {calc_index} missing {skip}, skipping'
                 )
                 continue
 
             atoms = _build_atoms_from_system(systems[system_index])
             atoms.calc = SinglePointCalculator(atoms, **results)
-            atoms.info["nomad_entry_id"] = entry_id
-            atoms.info["nomad_upload_id"] = upload_id
-            atoms.info["is_representative"] = systems[system_index].get(
-                "is_representative", False
+            atoms.info['nomad_entry_id'] = entry_id
+            atoms.info['nomad_upload_id'] = upload_id
+            atoms.info['is_representative'] = systems[system_index].get(
+                'is_representative', False
             )
-            atoms.info["is_converged_geometry"] = (
-                run.get("workflow2", {})
-                .get("results", {})
-                .get("is_converged_geometry", False)
-            )
+            atoms.info['is_converged_geometry'] = run.get('workflow2', {}).get(
+                'results', {}
+            ).get('is_converged_geometry', False) or run.get('workflow', {}).get(
+                'geometry_optimization', {}
+            ).get('is_converged_geometry', False)
             yield atoms
