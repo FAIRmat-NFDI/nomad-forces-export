@@ -1,0 +1,50 @@
+{
+    "owner": "public",
+    "query": {
+        "name": "results.material.elements",
+        "value": {
+            "all": [
+                "Si",
+                "O"
+            ]
+        }
+    },
+    "pagination": {
+        "page_size": 3,
+        "order_by": "entry_id",
+        "order": "asc",
+        "total": 43552,
+        "next_page_after_value": "--CP5Me2LwNQFLrq84mPoCnL7Hj1"
+    },
+    "required": {
+        "include": [
+            "entry_id",
+            "upload_id",
+            "datasets.dataset_name"
+        ]
+    },
+    "data": [
+        {
+            "upload_id": "ubgteFyhSF2Rd2XJU9eSWQ",
+            "datasets": [
+                {
+                    "dataset_name": "Alexandria PBEsol"
+                }
+            ],
+            "entry_id": "--0TXFv_aZUPi2bqjewWq3CTSGfc"
+        },
+        {
+            "upload_id": "UOm6k1H7SM6B60sSt9m1ow",
+            "entry_id": "--BdNTN5GwvFlUVtm9di4rRQ6of2"
+        },
+        {
+            "upload_id": "RgG09KduT32A7LmM69tftA",
+            "datasets": [
+                {
+                    "dataset_name": "Alexandria PBE"
+                }
+            ],
+            "entry_id": "--CP5Me2LwNQFLrq84mPoCnL7Hj1"
+        }
+    ]
+}

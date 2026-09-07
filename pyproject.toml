@@ -1,0 +1,35 @@
+[project]
+name = "nomad-forces-export"
+version = "0.1.0"
+description = "Fetch and package NOMAD atomistic data for MLIP training"
+requires-python = ">=3.10"
+
+authors = [
+    { name = "Sharat Patil", email = "patilsha@physik.hu-berlin.de" },
+]
+maintainers = [
+    { name = "Sharat Patil", email = "patilsha@physik.hu-berlin.de" },
+]
+
+dependencies = [
+    "ase>=3.23",
+    "loguru>=0.7.3",
+    "requests>=2.28",
+]
+
+[project.optional-dependencies]
+dev = ["pytest>=7.0"]
+
+[project.scripts]
+nomad-forces-export = "nomad_forces_export.cli:main"
+
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools]
+package-dir = {"" = "src"}
+
+[tool.setuptools.packages.find]
+where = ["src"]
+include = ["nomad_forces_export*"]
