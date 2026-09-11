@@ -22,7 +22,7 @@ __all__ = [
 ]
 
 
-def atoms_generator(archives, properties):
+def atoms_generator(archives, properties, max_frames: int | None = None):
     n_frames = 0
     n_entries_skipped = 0
     entries_processed = 0
@@ -33,7 +33,12 @@ def atoms_generator(archives, properties):
         for atoms in to_atoms(archive_entry, properties=properties):
             frames_for_entry += 1
             yield atoms
-        n_frames += frames_for_entry
+            n_frames += 1
+            if max_frames is not None and n_frames >= max_frames:
+                logger.info(
+                    f'Maximum number of frames ({max_frames}) reached; stopping extraction.'
+                )
+                return
         frames_for_entry = bool(frames_for_entry)
         n_entries_skipped += not frames_for_entry
         entries_processed += frames_for_entry
@@ -57,6 +62,7 @@ def fetch_dataset(
     output_format: str | list[str],
     output_path: str,
     max_entries: int | None = None,
+    max_frames: int | None = None,
     batch_size: int = 50,
     use_nomad_pkg: bool = False,
 ) -> None:
@@ -85,7 +91,7 @@ def fetch_dataset(
     logger.info(f'Fetching {len(entry_ids)} entries in batches of {batch_size}...')
     archives = fetch_archives(entry_ids=entry_ids, batch_size=batch_size)
     write_atoms(
-        atoms_generator(archives, properties=properties),
+        atoms_generator(archives, properties=properties, max_frames=max_frames),
         output_path=output_path,
         output_format=output_format,
     )
@@ -96,6 +102,7 @@ def create_dataset_from_archives(
     properties: set[str],
     output_format: str | list[str],
     output_path: str,
+    max_frames: int | None = None,
 ) -> None:
     """Create a dataset from a list of NOMAD archive entries.
 
@@ -117,7 +124,7 @@ def create_dataset_from_archives(
     else:
         entries = archives
     write_atoms(
-        atoms_generator(entries, properties=properties),
+        atoms_generator(entries, properties=properties, max_frames=max_frames),
         output_path=output_path,
         output_format=output_format,
     )
