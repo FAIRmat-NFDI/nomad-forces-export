@@ -31,6 +31,9 @@ def build_arg_parser() -> argparse.ArgumentParser:
     fetch_parser.add_argument(
         "--max-entries", type=int, default=None, dest="max_entries"
     )
+    fetch_parser.add_argument(
+        "--max-frames", type=int, default=None, dest="max_frames"
+    )
 
     return parser
 
@@ -53,6 +56,7 @@ def main(argv: list[str] | None = None) -> None:
             output_format=args.format,
             output_path=args.output,
             max_entries=args.max_entries,
+            max_frames=args.max_frames,
         )
 
 

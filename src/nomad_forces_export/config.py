@@ -10,14 +10,27 @@ WORKFLOWS = [
     'geometry_optimization',
 ]
 
-REQUIRED_METADATA = ['entry_id', 'upload_id']
+REQUIRED_METADATA = [
+    'entry_id',
+    'upload_id',
+]
+REQUIRED_SEARCH_QUANTITIES = {
+    'metadata': {'entry_id': '*', 'upload_id': '*'},
+    'results': {
+        'method': {'method_name': '*', 'workflow_name': '*'},
+    },
+}
 REQUIRED_ARCHIVE_DATA = {
     'metadata': {'entry_id': '*', 'upload_id': '*'},
     'results': {
         'method': '*',
     },
     'workflow2': {'results': {'is_converged_geometry': '*'}},
-    'workflow': {'geometry_optimization': {'is_converged_geometry': '*'}},
+    'workflow': {
+        'geometry_optimization': {'is_converged_geometry': '*'},
+        'type': '*',
+        'single_point': {'is_converged': '*'},
+    },
     'run': {
         'program': '*',
         'method': '*',
@@ -33,6 +46,6 @@ REQUIRED_ARCHIVE_DATA = {
 
 BASE_QUERY = {
     'results.method.method_name:any': ['DFT'],
-    'results.method.workflow_name:any': WORKFLOWS,
+    # "results.method.workflow_name:any": WORKFLOWS,
     'quantities:all': ['run.calculation', 'run.system'],
 }

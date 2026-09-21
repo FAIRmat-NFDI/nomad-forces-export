@@ -18,6 +18,7 @@ __all__ = [
     'atoms_generator',
     'create_dataset_from_archives',
     'fetch_dataset',
+    'fetch_dataset_one_call',
     'write_atoms',
 ]
 
@@ -90,6 +91,37 @@ def fetch_dataset(
     )
     logger.info(f'Fetching {len(entry_ids)} entries in batches of {batch_size}...')
     archives = fetch_archives(entry_ids=entry_ids, batch_size=batch_size)
+    write_atoms(
+        atoms_generator(archives, properties=properties, max_frames=max_frames),
+        output_path=output_path,
+        output_format=output_format,
+    )
+
+
+def fetch_dataset_one_call(
+    query: NomadQuery,
+    properties: set[str],
+    output_format: str | list[str],
+    output_path: str,
+    max_entries: int | None = None,
+    max_frames: int | None = None,
+    batch_size: int = 50,
+    # use_nomad_pkg: bool = False,
+) -> None:
+    """Fetch entries matching `query` from NOMAD and write them as a dataset.
+
+    Searches NOMAD for matching entry_ids (respecting `query.exclude_datasets`),
+    fetches full archive data in batches, extracts one `ase.Atoms` per calculation
+    frame with the requested `properties`, and writes the result to `output_path`
+    in the given `output_format` ("ase_db", "extxyz", or a list of both).
+    """
+
+    search_and_fetch_archives = query.search_and_fetch_archives
+    archives = search_and_fetch_archives(
+        max_entries=max_entries,
+        properties=properties,
+        batch_size=batch_size,
+    )
     write_atoms(
         atoms_generator(archives, properties=properties, max_frames=max_frames),
         output_path=output_path,

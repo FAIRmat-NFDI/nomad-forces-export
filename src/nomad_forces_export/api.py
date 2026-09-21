@@ -3,6 +3,7 @@
 import time
 
 import requests
+from loguru import logger
 
 from nomad_forces_export.config import NOMAD_BASE_URL
 
@@ -29,7 +30,7 @@ class NomadClient:
 
     def post(self, path: str, payload: dict) -> dict:
         """POST `payload` as JSON to `base_url + path`, returning the parsed JSON body."""
-        url = f"{self.base_url}{path}"
+        url = f'{self.base_url}{path}'
         last_exc: Exception | None = None
         for attempt in range(1, self.max_retries + 1):
             try:
@@ -44,6 +45,9 @@ class NomadClient:
                     time.sleep(self.backoff_seconds)
                     continue
                 elif exc.response.status_code < 500:
+                    logger.error(
+                        f'HTTP error {exc.response.status_code} for URL {url}: {exc.response.text}'
+                    )
                     raise
                 last_exc = exc
                 if attempt < self.max_retries:
