@@ -49,3 +49,72 @@ BASE_QUERY = {
     # "results.method.workflow_name:any": WORKFLOWS,
     'quantities:all': ['run.calculation', 'run.system'],
 }
+
+QUERY = {
+    'and': [
+        BASE_QUERY,
+        {
+            'or': [
+                {
+                    'and': [
+                        {'quantities:all': ['workflow']},
+                        {'quantities:none': ['results.method.workflow_name']},
+                    ]
+                },
+                {'results.method.workflow_name:any': WORKFLOWS},
+            ]
+        },
+    ]
+}
+
+
+def archive_filter(archive_entry: dict) -> bool:
+    entry = archive_entry.get('archive', {})
+    if (
+        entry.get('results', {}).get('method', {}).get('workflow_name') not in WORKFLOWS
+        and entry.get('workflow', [{}])[0].get('type') not in WORKFLOWS
+    ):
+        return True
+    return False
+
+
+# "query":
+#         {
+#   "and": [
+#     {
+#       "results.method.method_name:any": [
+#         "DFT"
+#       ],
+#       "quantities:all": [
+#         "run.calculation",
+#         "run.system"
+#       ]
+#     },
+#     {
+#       "or": [
+#         {
+#           "and": [
+#             {
+#               "quantities:all": [
+#                 "workflow"
+#               ]
+#             },
+#             {
+#               "quantities:none": [
+#                 "results.method.workflow_name"
+#               ]
+#             }
+#           ]
+#         },
+#         {
+#           "results.method.workflow_name:any": [
+#             "SinglePoint",
+#             "single_point",
+#             "GeometryOptimization",
+#             "geometry_optimization"
+#           ]
+#         }
+#       ]
+#     }
+#   ]
+# }

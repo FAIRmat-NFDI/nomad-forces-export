@@ -1,6 +1,7 @@
 """nomad_forces_export: fetch and package NOMAD data for MLIP fine-tuning."""
 
 import json
+from collections.abc import Iterable, Iterator
 from pathlib import Path
 from typing import List, Optional, Set, Union
 
@@ -39,6 +40,7 @@ def atoms_generator(archives, properties, max_frames: int | None = None):
                 logger.info(
                     f'Maximum number of frames ({max_frames}) reached; stopping extraction.'
                 )
+                entries_processed += 1
                 return
         frames_for_entry = bool(frames_for_entry)
         n_entries_skipped += not frames_for_entry
@@ -47,6 +49,8 @@ def atoms_generator(archives, properties, max_frames: int | None = None):
     try:
         for archive_entry in archives:
             yield from _atoms_from_entry(archive_entry)
+            if max_frames is not None and n_frames >= max_frames:
+                break
     except Exception as e:
         import traceback
 
@@ -130,7 +134,7 @@ def fetch_dataset_one_call(
 
 
 def create_dataset_from_archives(
-    archives: list[dict] | str | Path,
+    archives: list[dict] | Iterable[dict] | str | Path,
     properties: set[str],
     output_format: str | list[str],
     output_path: str,
@@ -142,21 +146,35 @@ def create_dataset_from_archives(
     and writes the result to `output_path` in the given `output_format`
     ("ase_db", "extxyz", or a list of both).
     """
-    if isinstance(archives, (str, Path)):
-        entries = []
-        if isinstance(archives, str):
-            archives = Path(archives)
-        if archives.is_dir():
-            for file in Path(archives).glob('*.json'):
-                with open(file) as f:
-                    entries.append(json.load(f))
-        elif archives.is_file():
-            with open(archives) as f:
-                entries = json.load(f)
-    else:
-        entries = archives
+
+    def _yield_archives(
+        archives: list[dict] | Iterable[dict] | str | Path,
+    ) -> Iterator[dict]:
+        if isinstance(archives, (str, Path)):
+            entries = []
+            if isinstance(archives, str):
+                archives = Path(archives)
+            if archives.is_dir():
+                for file in Path(archives).glob('*.json'):
+                    with open(file) as f:
+                        entry = json.load(f)
+                        yield entry
+            elif archives.is_file():
+                with open(archives) as f:
+                    entries = json.load(f)
+                if isinstance(entries, dict):
+                    entries = [entries]
+                for entry in entries:
+                    yield entry
+        else:
+            for entry in archives:
+                yield entry
+
+    archives_iterable = _yield_archives(archives)
     write_atoms(
-        atoms_generator(entries, properties=properties, max_frames=max_frames),
+        atoms_generator(
+            archives_iterable, properties=properties, max_frames=max_frames
+        ),
         output_path=output_path,
         output_format=output_format,
     )

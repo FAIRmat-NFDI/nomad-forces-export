@@ -25,7 +25,7 @@ def write_atoms(
     atoms_iter: Iterable[Atoms],
     output_path: str,
     output_format: str | list[str],
-) -> None:
+) -> int:
     """Write `atoms_iter` to disk in one or more formats.
 
     `output_format` is `"ase_db"`, `"extxyz"`, or a list containing both. When a
@@ -37,23 +37,37 @@ def write_atoms(
     if unknown:
         raise ValueError(f'Unknown output format(s): {sorted(unknown)}')
 
-    atoms_list = list(atoms_iter)
+    atoms_list = []
+    frames_written = 0
+    save_to_extxyz = 'extxyz' in formats
+    if save_to_extxyz:
+        xyz_path = _path_for_format(output_path, 'extxyz')
+        if os.path.exists(xyz_path):
+            os.remove(xyz_path)
 
     if 'ase_db' in formats:
         db_path = _path_for_format(output_path, 'ase_db')
         if os.path.exists(db_path):
             os.remove(db_path)
         with connect(db_path) as db:
-            for atoms in atoms_list:
+            for atoms in atoms_iter:
+                # atoms_list.append(atoms)
                 key_value_pairs = {
                     'nomad_entry_id': atoms.info.get('nomad_entry_id', ''),
-                    'nomad_upload_id': atoms.info.get('nomad_upload_id', ''),
+                    # 'nomad_upload_id': atoms.info.get('nomad_upload_id', ''),
                 }
                 db.write(atoms, key_value_pairs=key_value_pairs, data=atoms.info)
+                if save_to_extxyz:
+                    ase_write(xyz_path, atoms, format='extxyz', append=True)
+                frames_written += 1
+        return frames_written
 
-    if 'extxyz' in formats:
-        xyz_path = _path_for_format(output_path, 'extxyz')
-        if os.path.exists(xyz_path):
-            os.remove(xyz_path)
-        for atoms in atoms_list:
-            ase_write(xyz_path, atoms, format='extxyz', append=True)
+    if save_to_extxyz:
+        if atoms_list:
+            ase_write(xyz_path, atoms_list, format='extxyz', append=True)
+        else:
+            for atoms in atoms_iter:
+                ase_write(xyz_path, atoms, format='extxyz', append=True)
+                frames_written += 1
+
+    return len(atoms_list) if atoms_list else frames_written

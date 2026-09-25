@@ -95,84 +95,91 @@ def to_atoms(archive_entry: dict, properties: set | list[str]) -> Iterator[Atoms
     entry_id = archive_entry.get('entry_id')
     upload_id = archive_entry.get('upload_id')
     runs = archive_entry.get('archive', {}).get('run', [])
+    run_index = -1
+    try:
+        for run_index, run in enumerate(runs):
+            systems = run.get('system', [])
+            calculations = run.get('calculation', [])
+            method = run.get('method', [{}])[0]
 
-    for run_index, run in enumerate(runs):
-        systems = run.get('system', [])
-        calculations = run.get('calculation', [])
-        method = run.get('method', [{}])[0]
+            for calc_index, calculation in enumerate(calculations):
+                system_ref = calculation.get('system_ref')
+                if system_ref is not None:
+                    parsed = _parse_system_ref(system_ref)
+                    if parsed is None:
+                        logger.warning(
+                            f'entry {entry_id}: calculation {calc_index} has an unparseable system_ref {system_ref}, skipping'
+                        )
+                        continue
+                    ref_run_index, system_index = parsed
+                    if ref_run_index != run_index:
+                        logger.warning(
+                            f'entry {entry_id}: calculation {calc_index} has system_ref pointing to a '
+                            f'different run ({ref_run_index}) than its own run ({run_index}), skipping',
+                        )
+                        continue
+                else:
+                    system_index = calc_index
 
-        for calc_index, calculation in enumerate(calculations):
-            system_ref = calculation.get('system_ref')
-            if system_ref is not None:
-                parsed = _parse_system_ref(system_ref)
-                if parsed is None:
+                if system_index < 0 or system_index >= len(systems):
                     logger.warning(
-                        f'entry {entry_id}: calculation {calc_index} has an unparseable system_ref {system_ref}, skipping'
+                        'entry %s: calculation %d references missing system %d, skipping',
+                        entry_id,
+                        calc_index,
+                        system_index,
                     )
                     continue
-                ref_run_index, system_index = parsed
-                if ref_run_index != run_index:
-                    logger.warning(
-                        f'entry {entry_id}: calculation {calc_index} has system_ref pointing to a '
-                        f'different run ({ref_run_index}) than its own run ({run_index}), skipping',
+
+                if method.get('x_vasp_incar_in'):
+                    magmom = method['x_vasp_incar_in'].get('MAGMOM')
+                    if magmom:
+                        systems[system_index]['magmoms'] = np.array(magmom)
+                results: dict = {}
+                skip = ''
+
+                if 'energy' in properties:
+                    energy_ev = _extract_energy_ev(calculation)
+                    if energy_ev is None:
+                        skip = 'energy'
+                    else:
+                        results['energy'] = energy_ev
+
+                if not skip and 'forces' in properties:
+                    forces = _extract_forces_ev_per_ang(calculation)
+                    if forces is None:
+                        skip = 'forces'
+                    else:
+                        results['forces'] = forces
+
+                if not skip and 'stress' in properties:
+                    stress = _extract_stress_ev_per_ang3(calculation)
+                    if stress is None:
+                        skip = 'stress'
+                    else:
+                        results['stress'] = stress
+
+                if skip:
+                    logger.debug(
+                        f'entry {entry_id}: calculation {calc_index} missing {skip}, skipping'
                     )
                     continue
-            else:
-                system_index = calc_index
 
-            if system_index < 0 or system_index >= len(systems):
-                logger.warning(
-                    'entry %s: calculation %d references missing system %d, skipping',
-                    entry_id,
-                    calc_index,
-                    system_index,
+                atoms = _build_atoms_from_system(systems[system_index])
+                atoms.calc = SinglePointCalculator(atoms, **results)
+                atoms.info['nomad_entry_id'] = entry_id
+                atoms.info['nomad_upload_id'] = upload_id
+                atoms.info['is_representative'] = systems[system_index].get(
+                    'is_representative', False
                 )
-                continue
-
-            if method.get('x_vasp_incar_in'):
-                magmom = method['x_vasp_incar_in'].get('MAGMOM')
-                if magmom:
-                    systems[system_index]['magmoms'] = np.array(magmom)
-            results: dict = {}
-            skip = ''
-
-            if 'energy' in properties:
-                energy_ev = _extract_energy_ev(calculation)
-                if energy_ev is None:
-                    skip = 'energy'
-                else:
-                    results['energy'] = energy_ev
-
-            if not skip and 'forces' in properties:
-                forces = _extract_forces_ev_per_ang(calculation)
-                if forces is None:
-                    skip = 'forces'
-                else:
-                    results['forces'] = forces
-
-            if not skip and 'stress' in properties:
-                stress = _extract_stress_ev_per_ang3(calculation)
-                if stress is None:
-                    skip = 'stress'
-                else:
-                    results['stress'] = stress
-
-            if skip:
-                logger.debug(
-                    f'entry {entry_id}: calculation {calc_index} missing {skip}, skipping'
-                )
-                continue
-
-            atoms = _build_atoms_from_system(systems[system_index])
-            atoms.calc = SinglePointCalculator(atoms, **results)
-            atoms.info['nomad_entry_id'] = entry_id
-            atoms.info['nomad_upload_id'] = upload_id
-            atoms.info['is_representative'] = systems[system_index].get(
-                'is_representative', False
-            )
-            atoms.info['is_converged_geometry'] = run.get('workflow2', {}).get(
-                'results', {}
-            ).get('is_converged_geometry', False) or run.get('workflow', {}).get(
-                'geometry_optimization', {}
-            ).get('is_converged_geometry', False)
-            yield atoms
+                atoms.info['is_converged_geometry'] = run.get('workflow2', {}).get(
+                    'results', {}
+                ).get('is_converged_geometry', False) or run.get('workflow', {}).get(
+                    'geometry_optimization', {}
+                ).get('is_converged_geometry', False)
+                yield atoms
+    except Exception as e:
+        logger.error(
+            f'entry {entry_id}: error while extracting atoms from archive: {e} (run_index={run_index})'
+        )
+        logger.error('Traceback:', exc_info=True)
+        return
