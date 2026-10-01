@@ -1,4 +1,9 @@
-VALID_FORMATS = {'ase_db', 'extxyz'}
+VALID_FORMATS = {'ase_db', 'extxyz', 'ase_lmdb'}
+EXTENSION_MAP = {
+    'ase_db': '.db',
+    'extxyz': '.xyz',
+    'ase_lmdb': '.aselmdb',
+}
 VALID_PROPERTIES = {'energy', 'forces', 'stress'}
 
 NOMAD_BASE_URL = 'https://nomad-lab.eu/prod/v1/api/v1'
