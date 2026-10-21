@@ -12,6 +12,8 @@ from nomad_forces_export.config import (
     BASE_QUERY,
     REQUIRED_ARCHIVE_DATA,
     REQUIRED_METADATA,
+    REQUIRED_SEARCH_QUANTITIES,
+    WORKFLOWS,
 )
 
 
@@ -63,7 +65,7 @@ class NomadQuery:
             )
 
         if self.program:
-            query_dict['results.method.simulation.program_name'] = self.program
+            query_dict['results.method.simulation.program_name:any'] = [self.program]
         if self.exclude_datasets:
             query_dict['datasets.dataset_name:none'] = list(self.exclude_datasets)
             query_dict['external_db:none'] = list(self.exclude_datasets)
@@ -72,6 +74,21 @@ class NomadQuery:
         return query_dict
 
     def _is_excluded(self, entry: dict) -> bool:
+        dataset_names = [d.get('dataset_name', '') for d in entry.get('datasets', [])]
+        for excluded in self.exclude_datasets:
+            for name in dataset_names:
+                if excluded.lower() in name.lower():
+                    return True
+        return False
+
+    def _is_excluded_archive(self, archive_entry: dict) -> bool:
+        entry = archive_entry.get('archive', {})
+        if (
+            entry.get('results', {}).get('method', {}).get('workflow_name')
+            not in WORKFLOWS
+            and entry.get('workflow', [{}])[0].get('type') not in WORKFLOWS
+        ):
+            return True
         if not self.exclude_datasets:
             return False
         dataset_names = [d.get('dataset_name', '') for d in entry.get('datasets', [])]
@@ -95,7 +112,7 @@ class NomadQuery:
         query_dict = self.to_query_dict(properties=properties)
         page_after_value = None
         yielded = 0
-        page_size = min(10000, max_entries) if max_entries is not None else 10000
+        page_size = min(10, max_entries) if max_entries is not None else 10000
         client = self.client or NomadClient()
         while True:
             payload = {
@@ -267,3 +284,73 @@ class NomadQuery:
 
                             json.dump(archive, f, indent=2)
                 yield archive
+
+    def search_and_fetch_archives(
+        self,
+        max_entries: int | None = None,
+        properties: set[str] | None = None,
+        batch_size: int = 50,
+        save_dir: str | None = None,
+    ) -> Iterator[dict]:
+        """Search for entry_ids matching this query, then fetch their full archive data.
+
+        Combines `search()` and `fetch_archives()` into a single generator. Yields
+        one archive dict (as returned in the response `data` list) per entry.
+        """
+
+        query_dict = self.to_query_dict(properties=properties)
+        page_after_value = None
+        yielded = 0
+        page_size = (
+            min([10, batch_size, max_entries]) if max_entries is not None else 10
+        )
+        client = self.client or NomadClient()
+        while True:
+            payload = {
+                'query': query_dict,
+                'pagination': {'page_size': page_size},
+                'required': REQUIRED_ARCHIVE_DATA,
+            }
+            if page_after_value:
+                payload['pagination']['page_after_value'] = page_after_value
+
+            response = client.post('/entries/archive/query', payload)
+            pagination = response.get('pagination', {})
+            total_entries = pagination.get('total')
+            logger.info(f'query returned total {total_entries})')
+            next_page_after_value = pagination.get('next_page_after_value')
+
+            # If the cursor returned for this page is identical to the cursor we
+            # just requested with, the server (or a mock) is not making progress
+            # (e.g. returning the same page repeatedly) -- stop before processing
+            # this page's data to avoid re-yielding already-seen entries.
+            if (
+                page_after_value is not None
+                and next_page_after_value == page_after_value
+            ):
+                return
+
+            data = response.get('data', [])
+            for archive_entry in data:
+                if self._is_excluded_archive(archive_entry):
+                    continue
+                if save_dir:
+                    os.makedirs(f'{save_dir}/archives', exist_ok=True)
+                    entry_id = archive_entry.get('entry_id')
+                    if entry_id:
+                        with open(
+                            f'{save_dir}/archives/archive_{entry_id}.json', 'w'
+                        ) as f:
+                            import json
+
+                            json.dump(archive_entry, f, indent=2)
+                yield archive_entry
+                yielded += 1
+                if max_entries is not None and yielded >= max_entries:
+                    return
+
+            # Stop if there's no cursor or no data (no more pages).
+            if not next_page_after_value or not data:
+                return
+
+            page_after_value = next_page_after_value

@@ -1,11 +1,20 @@
-# nomad-mlip-data
+# nomad-force-export
 
 Fetch atomistic structures with energies/forces/stress from
 [NOMAD](https://nomad-lab.eu/prod/v1/gui/search/entries) and package them as ASE-DB or
 extxyz datasets for fine-tuning ASE-calculator-compatible MLIPs.
 
-## Install
+## Installation
 
+
+Install the package with pip:
+
+```sh
+pip install nomad-forces-export
+```
+
+## Development
+Clone the repository and create a virtual environment 
 ```bash
 uv venv .venv
 source .venv/bin/activate
