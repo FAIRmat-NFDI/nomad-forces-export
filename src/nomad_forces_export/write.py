@@ -56,7 +56,6 @@ def write_atoms(
             os.remove(out_path)
 
     with contextlib.ExitStack() as stack:
-        print(out_paths)
         dbs = [
             stack.enter_context(connect(out_path))
             for fmt, out_path in out_paths.items()

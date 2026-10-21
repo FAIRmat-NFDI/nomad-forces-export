@@ -53,16 +53,18 @@ def _build_atoms_from_system(system: dict) -> Atoms:
     )
 
 
-def _extract_energy_ev(calculation: dict) -> float | None:
+def _extract_energy_ev(calculation: dict, type: str = 'total_t0') -> float | None:
     energy = calculation.get('energy')
     if not energy:
         return None
-    if 'total_t0' in energy:
-        return joule_to_ev(energy['total_t0']['value'])
-    if 'total' in energy:
-        return joule_to_ev(energy['total']['value'])
-    if 'free' in energy:
-        return joule_to_ev(energy['free']['value'])
+    if type in energy:
+        return joule_to_ev(energy[type]['value'])
+    # if 'total_t0' in energy:
+    #     return joule_to_ev(energy['total_t0']['value'])
+    # if 'total' in energy:
+    #     return joule_to_ev(energy['total']['value'])
+    # if 'free' in energy:
+    #     return joule_to_ev(energy['free']['value'])
     return None
 
 
@@ -138,11 +140,14 @@ def to_atoms(archive_entry: dict, properties: set | list[str]) -> Iterator[Atoms
                 skip = ''
 
                 if 'energy' in properties:
-                    energy_ev = _extract_energy_ev(calculation)
+                    energy_ev = _extract_energy_ev(calculation, type='total_t0')
+                    free_energy_ev = _extract_energy_ev(calculation, type='free')
                     if energy_ev is None:
                         skip = 'energy'
                     else:
                         results['energy'] = energy_ev
+                    if free_energy_ev is not None:
+                        results['free_energy'] = free_energy_ev
 
                 if not skip and 'forces' in properties:
                     forces = _extract_forces_ev_per_ang(calculation)
