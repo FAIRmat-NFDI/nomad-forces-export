@@ -13,6 +13,7 @@ maintainers = [
 
 dependencies = [
     "ase>=3.23",
+    "ase-db-backends>=0.11.0",
     "loguru>=0.7.3",
     "requests>=2.28",
 ]
@@ -33,3 +34,78 @@ package-dir = {"" = "src"}
 [tool.setuptools.packages.find]
 where = ["src"]
 include = ["nomad_forces_export*"]
+
+
+[tool.ruff]
+# Exclude a variety of commonly ignored directories.
+exclude = [
+    ".bzr",
+    ".direnv",
+    ".eggs",
+    ".git",
+    ".git-rewrite",
+    ".hg",
+    ".mypy_cache",
+    ".nox",
+    ".pants.d",
+    ".pytype",
+    ".ruff_cache",
+    ".svn",
+    ".tox",
+    ".venv",
+    "__pypackages__",
+    "_build",
+    "buck-out",
+    "build",
+    "dist",
+    "node_modules",
+    "venv",
+]
+
+# Same as Black.
+line-length = 88
+indent-width = 4
+
+
+[tool.ruff.lint]
+select = [
+    # pycodestyle
+    "E",
+    # Pyflakes
+    "F",
+    # pyupgrade
+    "UP",
+    # isort
+    "I",
+    # pylint
+    "PL",
+]
+
+ignore = [
+    "F401",    # imported but unused
+    "F403",    # 'from module import *' used; unable to detect undefined names
+    "PLC0415", # `import` should be at the top-level of a file
+    "E501",    # line too long
+]
+
+fixable = ["ALL"]
+
+# Allow unused variables when underscore-prefixed.
+dummy-variable-rgx = "^(_+|(_+[a-zA-Z0-9_]*[a-zA-Z0-9]+?))$"
+
+[tool.ruff.lint.per-file-ignores]
+"__init__.py" = ["PLC0415"] # import-outside-top-level
+
+# this is entirely optional, you can remove this if you wish to
+[tool.ruff.format]
+# use single quotes for strings.
+quote-style = "single"
+
+# indent with spaces, rather than tabs.
+indent-style = "space"
+
+# Like Black, respect magic trailing commas.
+skip-magic-trailing-comma = false
+
+# Like Black, automatically detect the appropriate line ending.
+line-ending = "auto"
