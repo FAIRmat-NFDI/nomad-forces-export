@@ -5,7 +5,7 @@ from ase.calculators.singlepoint import SinglePointCalculator
 from ase.db import connect
 from ase.io import read
 
-from src.nomad_forces_export.write import write_atoms
+from nomad_forces_export.write import write_atoms
 
 
 def _make_atoms(entry_id="e1", upload_id="u1"):

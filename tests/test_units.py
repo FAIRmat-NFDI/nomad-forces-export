@@ -1,6 +1,6 @@
 import math
 
-from src.nomad_forces_export.units import (
+from nomad_forces_export.units import (
     joule_to_ev,
     meter_to_angstrom,
     newton_to_ev_per_angstrom,
