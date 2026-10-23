@@ -3,7 +3,11 @@ from unittest.mock import patch
 
 from ase.db import connect
 
-from src.nomad_forces_export import NomadQuery, fetch_dataset
+from nomad_forces_export import (
+    NomadQuery,
+    create_dataset_from_archives,
+    fetch_dataset,
+)
 
 
 def test_fetch_dataset_end_to_end(tmp_path: Path):
@@ -72,3 +76,19 @@ def test_fetch_dataset_end_to_end(tmp_path: Path):
         rows = list(db.select())
     assert len(rows) == 1
     assert rows[0].nomad_entry_id == 'e1'
+
+
+def test_create_dataset_from_archives_file_respects_max_frames(tmp_path: Path):
+    archive_file = Path(__file__).parent / 'fixtures' / 'archive_trajectory_sample.json'
+    db_path = tmp_path / 'dataset.db'
+
+    create_dataset_from_archives(
+        archives=str(archive_file),
+        properties={'energy', 'forces'},
+        output_format='ase_db',
+        output_path=str(db_path),
+        max_frames=1,
+    )
+
+    with connect(str(db_path)) as db:
+        assert len(list(db.select())) == 1

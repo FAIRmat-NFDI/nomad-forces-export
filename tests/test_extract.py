@@ -5,7 +5,8 @@ from pathlib import Path
 import numpy as np
 import pytest
 
-from src.nomad_forces_export.extract import to_atoms
+from nomad_forces_export.extract import to_atoms
+from nomad_forces_export.units import joule_to_ev
 
 FIXTURES = Path(__file__).parent / 'fixtures'
 
@@ -40,12 +41,27 @@ def test_to_atoms_attaches_energy_and_forces():
     entry = _load_archive_entry()
     atoms = next(iter(to_atoms(entry, properties={'energy', 'forces'})))
     energy_ev = atoms.get_potential_energy()
-    # free energy -4.174314829823578e-18 J -> eV
-    # assert energy_ev == pytest.approx(-26.05402410465368, rel=1e-4)
+    # total_t0 energy is used as the energy property
     assert energy_ev == pytest.approx(0.0029920300246507126, rel=1e-4)
     forces = atoms.get_forces()
     assert forces.shape == (4, 3)
     assert np.allclose(forces, 0.0)
+
+
+def test_to_atoms_attaches_free_energy_when_available():
+    entry = _load_archive_entry()
+    atoms = next(iter(to_atoms(entry, properties={'energy'})))
+    calc_energy = entry['archive']['run'][0]['calculation'][0]['energy']
+    assert atoms.calc.results['free_energy'] == pytest.approx(
+        joule_to_ev(calc_energy['free']['value'])
+    )
+
+
+def test_to_atoms_skips_frame_without_total_t0_energy():
+    entry = _load_archive_entry()
+    for calc in entry['archive']['run'][0]['calculation']:
+        del calc['energy']['total_t0']
+    assert list(to_atoms(entry, properties={'energy'})) == []
 
 
 def test_to_atoms_attaches_stress_when_requested():
@@ -92,7 +108,7 @@ def test_to_atoms_skips_frame_when_system_ref_points_to_different_run():
                     ],
                     'calculation': [
                         {
-                            'energy': {'free': {'value': -1.602176634e-19}},
+                            'energy': {'total_t0': {'value': -1.602176634e-19}},
                             'forces': {'total': {'value': [[0.0, 0.0, 0.0]]}},
                             # BUG SCENARIO: this ref points into run 1, not run 0
                             'system_ref': '/run/1/system/0',
@@ -193,7 +209,7 @@ def test_to_atoms_skips_frame_with_unparseable_system_ref():
                     ],
                     'calculation': [
                         {
-                            'energy': {'free': {'value': -1.602176634e-19}},
+                            'energy': {'total_t0': {'value': -1.602176634e-19}},
                             'forces': {'total': {'value': [[0.0, 0.0, 0.0]]}},
                             'system_ref': 'not-a-valid-ref',
                         }
